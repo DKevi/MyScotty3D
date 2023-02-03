@@ -1,4 +1,4 @@
-AndrewID:
+AndrewID: mingyuad
 
 Under each task, write 'Fully implemented.', 'Not attempted.', or explain your attempted solution and where it fails.
 
@@ -19,13 +19,13 @@ Task A1T4:
 	Fully implemented.
 
 Task A1T5:
-	Fully implemented.
+	Not attempted.
 
 Task A1T6:
-	Fully implemented.
+	Not attempted.
 
 Task A1T7:
-	Fully implemented.
+	Not attempted.
 
 render.png:
 	How did you make it?

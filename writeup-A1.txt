@@ -19,15 +19,16 @@ Task A1T4:
 --- A1.5 ---
 
 Task A1T5:
-	Not attempted.
+	Fully implemented.
 
 Task A1T6:
-	Not attempted.
+	Fully implemented.
 
 Task A1T7:
-	Not attempted.
+	Fully implemented.
 
 render.png:
-	How did you make it?
+	I downloaded a cat obj from a website. Rotated and scale it so it is standing on the ground and fit the camera window.
 
 	Any free model sources you need to credit?
+  The obj of the cat is from https://free3d.com/3d-model/cat-v1--522281.html

@@ -108,12 +108,12 @@ struct Lambertian {
 		//  --> 'lod' is \lambda_base from equation (3.17)
 		// reading onward, you will discover that \rho can be computed in a number of ways
 		//  it is up to you to select one that makes sense in this context
+    float lx = sqrt(wh.x * fdx_texcoord.x * wh.x * fdx_texcoord.x + wh.y * fdx_texcoord.y * wh.y * fdx_texcoord.y);
+    float ly = sqrt(wh.x * fdy_texcoord.x * wh.x * fdy_texcoord.x + wh.y * fdy_texcoord.y * wh.y * fdy_texcoord.y);
+    float lod = std::clamp(std::log2(std::max(lx, ly)), 0.0f, std::numeric_limits<float>::max()); //<-- replace this line
+    //-----
 
-		float lod = 0.0f; //<-- replace this line
-		//-----
-
-
-		Vec3 normal = fa_normal.unit();
+    Vec3 normal = fa_normal.unit();
 
 		Spectrum light =
 			//sun contribution:

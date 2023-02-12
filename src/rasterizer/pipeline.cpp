@@ -26,7 +26,6 @@ void Pipeline<primitive_type, Program, flags>::run(
   //   around some subset of the code.
   //  You will also need to transform the input and output of the rasterize_* functions to
   //    account for the fact they deal with pixels centered at (0.5,0.5).
-
   std::vector<ShadedVertex> shaded_vertices;
   shaded_vertices.reserve(vertices.size());
 
@@ -102,128 +101,157 @@ void Pipeline<primitive_type, Program, flags>::run(
   //--------------------------
   // rasterize primitives:
 
-  std::vector<Fragment> fragments;
-
-  // helper used to put output of rasterization functions into fragments:
-  auto emit_fragment = [&](Fragment const &f)
+  std::vector<Vec3> const &samples = framebuffer.sample_pattern.centers_and_weights;
+  for (uint32_t s = 0; s < samples.size(); ++s)
   {
-    fragments.emplace_back(f);
-  };
-  // actually do rasterization:
-  if constexpr (primitive_type == PrimitiveType::Lines)
-  {
-    for (uint32_t i = 0; i + 1 < clipped_vertices.size(); i += 2)
+    std::vector<Fragment> fragments;
+    float xShift, yShift;
+
+    // helper used to put output of rasterization functions into fragments:
+    auto emit_fragment = [&](Fragment const &f)
     {
-      rasterize_line(clipped_vertices[i], clipped_vertices[i + 1], emit_fragment);
-    }
-  }
-  else if constexpr (primitive_type == PrimitiveType::Triangles)
-  {
-    for (uint32_t i = 0; i + 2 < clipped_vertices.size(); i += 3)
-    {
-      rasterize_triangle(clipped_vertices[i], clipped_vertices[i + 1], clipped_vertices[i + 2], emit_fragment);
-    }
-  }
-  else
-  {
-    static_assert(primitive_type == PrimitiveType::Lines, "Unsupported primitive type.");
-  }
-
-  //--------------------------
-  // depth test + shade + blend fragments:
-  uint32_t out_of_range = 0; // check if rasterization produced fragments outside framebuffer (indicates something is wrong with clipping)
-  for (auto const &f : fragments)
-  {
-
-    // fragment location (in pixels):
-    int32_t x = (int32_t)std::floor(f.fb_position.x);
-    int32_t y = (int32_t)std::floor(f.fb_position.y);
-
-    // if clipping is working properly, this condition shouldn't be needed;
-    // however, it prevents crashes while you are working on your clipping functions,
-    // so we suggest leaving it in place:
-    if (x < 0 || (uint32_t)x >= framebuffer.width || y < 0 || (uint32_t)y >= framebuffer.height)
-    {
-      ++out_of_range;
-      continue;
-    }
-
-    // local names that refer to destination sample in framebuffer:
-    float &fb_depth = framebuffer.depth_at(x, y, 0);
-    Spectrum &fb_color = framebuffer.color_at(x, y, 0);
-
-    // depth test:
-    if constexpr ((flags & PipelineMask_Depth) == Pipeline_Depth_Always)
-    {
-      //"Always" means the depth test always passes.
-    }
-    else if constexpr ((flags & PipelineMask_Depth) == Pipeline_Depth_Never)
-    {
-      //"Never" means the depth test never passes.
-      continue; // discard this fragment
-    }
-    else if constexpr ((flags & PipelineMask_Depth) == Pipeline_Depth_Less)
-    {
-      //"Less" means the depth test passes when the new fragment has depth less than the stored depth.
-      // A1T4: Depth_Less
-      // TODO: implement depth test! We want to only emit fragments that have a depth less than the stored depth, hence "Depth_Less"
-      if (f.fb_position.z >= fb_depth)
-        continue;
-    }
-    else
-    {
-      static_assert((flags & PipelineMask_Depth) <= Pipeline_Depth_Always, "Unknown depth test flag.");
-    }
-
-    // if depth test passes, and depth writes aren't disabled, write depth to depth buffer:
-    if constexpr (!(flags & Pipeline_DepthWriteDisableBit))
-    {
-      fb_depth = f.fb_position.z;
-    }
-
-    // shade fragment:
-    ShadedFragment sf;
-    sf.fb_position = f.fb_position;
-    Program::shade_fragment(parameters, f.attributes, f.derivatives, &sf.color, &sf.opacity);
-
-    // write color to framebuffer if color writes aren't disabled:
-    if constexpr (!(flags & Pipeline_ColorWriteDisableBit))
-    {
-
-      // blend fragment:
-      if constexpr ((flags & PipelineMask_Blend) == Pipeline_Blend_Replace)
-      {
-        fb_color = sf.color;
-      }
-      else if constexpr ((flags & PipelineMask_Blend) == Pipeline_Blend_Add)
-      {
-        // A1T4: Blend_Add
-        // TODO: framebuffer color should have fragment color multiplied by fragment opacity added to it.
-        fb_color += sf.opacity * sf.color; //<-- replace this line
-      }
-      else if constexpr ((flags & PipelineMask_Blend) == Pipeline_Blend_Over)
-      {
-        // A1T4: Blend_Over
-        // TODO: set framebuffer color to the result of "over" blending (also called "alpha blending") the fragment color over the framebuffer color, using the fragment's opacity
-        //  		You may assume that the framebuffer color has its alpha premultiplied already, and you just want to compute the resulting composite color
-        fb_color = sf.opacity * sf.color + (1 - sf.opacity) * fb_color; //<-- replace this line
-      }
-      else
-      {
-        static_assert((flags & PipelineMask_Blend) <= Pipeline_Blend_Over, "Unknown blending flag.");
-      }
-    }
-  }
-
-  if (out_of_range > 0)
-  {
+      Fragment newF = f;
+      newF.fb_position.x += xShift;
+      newF.fb_position.y += yShift;
+      fragments.emplace_back(newF);
+    };
+    xShift = samples[s].x - 0.5f;
+    yShift = samples[s].y - 0.5f;
+    // actually do rasterization:
     if constexpr (primitive_type == PrimitiveType::Lines)
     {
-      warn("Produced %d fragments outside framebuffer; this indicates something is likely wrong with the clip_line function.", out_of_range);
+      for (uint32_t i = 0; i + 1 < clipped_vertices.size(); i += 2)
+      {
+        clipped_vertices[i].fb_position.x -= xShift;
+        clipped_vertices[i].fb_position.y -= yShift;
+        clipped_vertices[i + 1].fb_position.x -= xShift;
+        clipped_vertices[i + 1].fb_position.y -= yShift;
+        rasterize_line(clipped_vertices[i], clipped_vertices[i + 1], emit_fragment);
+        clipped_vertices[i].fb_position.x += xShift;
+        clipped_vertices[i].fb_position.y += yShift;
+        clipped_vertices[i + 1].fb_position.x += xShift;
+        clipped_vertices[i + 1].fb_position.y += yShift;
+      }
     }
     else if constexpr (primitive_type == PrimitiveType::Triangles)
     {
-      warn("Produced %d fragments outside framebuffer; this indicates something is likely wrong with the clip_triangle function.", out_of_range);
+      for (uint32_t i = 0; i + 2 < clipped_vertices.size(); i += 3)
+      {
+        clipped_vertices[i].fb_position.x -= xShift;
+        clipped_vertices[i].fb_position.y -= yShift;
+        clipped_vertices[i + 1].fb_position.x -= xShift;
+        clipped_vertices[i + 1].fb_position.y -= yShift;
+        clipped_vertices[i + 2].fb_position.x -= xShift;
+        clipped_vertices[i + 2].fb_position.y -= yShift;
+        rasterize_triangle(clipped_vertices[i], clipped_vertices[i + 1], clipped_vertices[i + 2], emit_fragment);
+        clipped_vertices[i].fb_position.x += xShift;
+        clipped_vertices[i].fb_position.y += yShift;
+        clipped_vertices[i + 1].fb_position.x += xShift;
+        clipped_vertices[i + 1].fb_position.y += yShift;
+        clipped_vertices[i + 2].fb_position.x += xShift;
+        clipped_vertices[i + 2].fb_position.y += yShift;
+      }
+    }
+    else
+    {
+      static_assert(primitive_type == PrimitiveType::Lines, "Unsupported primitive type.");
+    }
+
+    //--------------------------
+    // depth test + shade + blend fragments:
+    uint32_t out_of_range = 0; // check if rasterization produced fragments outside framebuffer (indicates something is wrong with clipping)
+    for (auto const &f : fragments)
+    {
+
+      // fragment location (in pixels):
+      int32_t x = (int32_t)std::floor(f.fb_position.x);
+      int32_t y = (int32_t)std::floor(f.fb_position.y);
+
+      // if clipping is working properly, this condition shouldn't be needed;
+      // however, it prevents crashes while you are working on your clipping functions,
+      // so we suggest leaving it in place:
+      if (x < 0 || (uint32_t)x >= framebuffer.width || y < 0 || (uint32_t)y >= framebuffer.height)
+      {
+        ++out_of_range;
+        continue;
+      }
+
+      // local names that refer to destination sample in framebuffer:
+      float &fb_depth = framebuffer.depth_at(x, y, s);
+      Spectrum &fb_color = framebuffer.color_at(x, y, s);
+
+      // depth test:
+      if constexpr ((flags & PipelineMask_Depth) == Pipeline_Depth_Always)
+      {
+        //"Always" means the depth test always passes.
+      }
+      else if constexpr ((flags & PipelineMask_Depth) == Pipeline_Depth_Never)
+      {
+        //"Never" means the depth test never passes.
+        continue; // discard this fragment
+      }
+      else if constexpr ((flags & PipelineMask_Depth) == Pipeline_Depth_Less)
+      {
+        //"Less" means the depth test passes when the new fragment has depth less than the stored depth.
+        // A1T4: Depth_Less
+        // TODO: implement depth test! We want to only emit fragments that have a depth less than the stored depth, hence "Depth_Less"
+        if (f.fb_position.z >= fb_depth)
+          continue;
+      }
+      else
+      {
+        static_assert((flags & PipelineMask_Depth) <= Pipeline_Depth_Always, "Unknown depth test flag.");
+      }
+
+      // if depth test passes, and depth writes aren't disabled, write depth to depth buffer:
+      if constexpr (!(flags & Pipeline_DepthWriteDisableBit))
+      {
+        fb_depth = f.fb_position.z;
+      }
+
+      // shade fragment:
+      ShadedFragment sf;
+      sf.fb_position = f.fb_position;
+      Program::shade_fragment(parameters, f.attributes, f.derivatives, &sf.color, &sf.opacity);
+
+      // write color to framebuffer if color writes aren't disabled:
+      if constexpr (!(flags & Pipeline_ColorWriteDisableBit))
+      {
+
+        // blend fragment:
+        if constexpr ((flags & PipelineMask_Blend) == Pipeline_Blend_Replace)
+        {
+          fb_color = sf.color;
+        }
+        else if constexpr ((flags & PipelineMask_Blend) == Pipeline_Blend_Add)
+        {
+          // A1T4: Blend_Add
+          // TODO: framebuffer color should have fragment color multiplied by fragment opacity added to it.
+          fb_color += sf.opacity * sf.color; //<-- replace this line
+        }
+        else if constexpr ((flags & PipelineMask_Blend) == Pipeline_Blend_Over)
+        {
+          // A1T4: Blend_Over
+          // TODO: set framebuffer color to the result of "over" blending (also called "alpha blending") the fragment color over the framebuffer color, using the fragment's opacity
+          //  		You may assume that the framebuffer color has its alpha premultiplied already, and you just want to compute the resulting composite color
+          fb_color = sf.opacity * sf.color + (1 - sf.opacity) * fb_color; //<-- replace this line
+        }
+        else
+        {
+          static_assert((flags & PipelineMask_Blend) <= Pipeline_Blend_Over, "Unknown blending flag.");
+        }
+      }
+    }
+    if (out_of_range > 0)
+    {
+      if constexpr (primitive_type == PrimitiveType::Lines)
+      {
+        warn("Produced %d fragments outside framebuffer; this indicates something is likely wrong with the clip_line function.", out_of_range);
+      }
+      else if constexpr (primitive_type == PrimitiveType::Triangles)
+      {
+        warn("Produced %d fragments outside framebuffer; this indicates something is likely wrong with the clip_triangle function.", out_of_range);
+      }
     }
   }
 }
@@ -617,6 +645,131 @@ void Pipeline<p, P, flags>::rasterize_triangle(
     ClippedVertex const &va, ClippedVertex const &vb, ClippedVertex const &vc,
     std::function<void(Fragment const &)> const &emit_fragment)
 {
+  auto TriArea = [](float ax, float ay, float bx, float by, float cx, float cy)
+  {
+    double abx = (double)bx - (double)ax;
+    double aby = (double)by - (double)ay;
+    double acx = (double)cx - (double)ax;
+    double acy = (double)cy - (double)ay;
+    return abs(abx*acy - aby*acx) / 2.0f;
+  };
+
+  auto TriAreaOrdered = [](float ax, float ay, float bx, float by, float cx, float cy)
+  {
+    double abx = (double)bx - (double)ax;
+    double aby = (double)by - (double)ay;
+    double acx = (double)cx - (double)ax;
+    double acy = (double)cy - (double)ay;
+    return (abx * acy - aby * acx) / 2.0f;
+  };
+  // Test edge va-vb is a left edge or top edge
+  auto TestLeftOrTopEdge = [](ClippedVertex const &va, ClippedVertex const &vb, ClippedVertex const &vc)
+  {
+    // If edge is horizontal
+    if (va.fb_position.y == vb.fb_position.y)
+    {
+      if (va.fb_position.y > vc.fb_position.y)
+        return true;
+      else
+        return false;
+    } else {
+      float slope;
+      if (va.fb_position.x < vb.fb_position.x) {
+        slope = (vb.fb_position.y - va.fb_position.y) / (vb.fb_position.x - va.fb_position.x);
+        if (slope > 0.0f) {
+          if ((vc.fb_position.y - va.fb_position.y) < slope * (vc.fb_position.x - va.fb_position.x))
+            return true;
+          else 
+            return false;
+        } else {
+          if ((vc.fb_position.y - va.fb_position.y) > slope * (vc.fb_position.x - va.fb_position.x))
+            return true;
+          else
+            return false;
+        }
+      } else if (va.fb_position.x > vb.fb_position.x) {
+        slope = (va.fb_position.y - vb.fb_position.y) / (va.fb_position.x - vb.fb_position.x);
+        if (slope > 0.0f)
+        {
+          if ((vc.fb_position.y - vb.fb_position.y) < slope * (vc.fb_position.x - vb.fb_position.x))
+            return true;
+          else
+            return false;
+        }
+        else
+        {
+          if ((vc.fb_position.y - vb.fb_position.y) > slope * (vc.fb_position.x - vb.fb_position.x))
+            return true;
+          else
+            return false;
+        }
+      } else {
+        if (vc.fb_position.x > va.fb_position.x)
+          return true;
+        else
+          return false;
+      }
+    }
+  };
+
+  auto CalculateScreenSpaceDerivatives = [TriAreaOrdered](ClippedVertex const &va, ClippedVertex const &vb, ClippedVertex const &vc, double totalArea, Fragment &f, float deltaX, float deltaY)
+  {
+    double subArea1 = TriAreaOrdered(f.fb_position.x + deltaX, f.fb_position.y + deltaY, va.fb_position.x, va.fb_position.y, vb.fb_position.x, vb.fb_position.y);
+    double subArea2 = TriAreaOrdered(f.fb_position.x + deltaX, f.fb_position.y + deltaY, vc.fb_position.x, vc.fb_position.y, va.fb_position.x, va.fb_position.y);
+    double subArea3 = TriAreaOrdered(f.fb_position.x + deltaX, f.fb_position.y + deltaY, vb.fb_position.x, vb.fb_position.y, vc.fb_position.x, vc.fb_position.y);
+    double u = subArea1 / totalArea;
+    double v = subArea2 / totalArea;
+    double w = subArea3 / totalArea;
+    for (uint32_t i = 0; i < f.derivatives.size(); ++i)
+    {
+      float deltaAttribute = (float)((double)va.attributes[i] * w + (double)vb.attributes[i] * v + (double)vc.attributes[i] * u);
+      if (deltaX != 0.0f)
+      {
+        if (deltaX > 0.0f)
+          f.derivatives[i].x += deltaAttribute - f.attributes[i];
+        else
+          f.derivatives[i].x += f.attributes[i] - deltaAttribute;
+      }
+      else
+      {
+        if (deltaY > 0.0f)
+          f.derivatives[i].y += deltaAttribute - f.attributes[i];
+        else
+          f.derivatives[i].y += f.attributes[i] - deltaAttribute;
+      }
+    }
+    return;
+  };
+
+  auto CalculateCorrectDerivatives = [TriAreaOrdered](ClippedVertex const &va, ClippedVertex const &vb, ClippedVertex const &vc, double totalArea, Fragment &f, float deltaX, float deltaY)
+  {
+    double subArea1 = TriAreaOrdered(f.fb_position.x + deltaX, f.fb_position.y + deltaY, va.fb_position.x, va.fb_position.y, vb.fb_position.x, vb.fb_position.y);
+    double subArea2 = TriAreaOrdered(f.fb_position.x + deltaX, f.fb_position.y + deltaY, vc.fb_position.x, vc.fb_position.y, va.fb_position.x, va.fb_position.y);
+    double subArea3 = TriAreaOrdered(f.fb_position.x + deltaX, f.fb_position.y + deltaY, vb.fb_position.x, vb.fb_position.y, vc.fb_position.x, vc.fb_position.y);
+    double u = subArea1 / totalArea;
+    double v = subArea2 / totalArea;
+    double w = subArea3 / totalArea;
+    float fbw = (float)((double)va.inv_w * w + (double)vb.inv_w * v + (double)vc.inv_w * u);
+    for (uint32_t i = 0; i < f.derivatives.size(); ++i)
+    {
+      float deltaAttribute = (float)(((double)va.attributes[i] * va.inv_w * w + (double)vb.attributes[i] * vb.inv_w * v + (double)vc.attributes[i] * vc.inv_w * u) / fbw);
+      if (deltaX != 0.0f)
+      {
+        if (deltaX > 0.0f)
+          f.derivatives[i].x += deltaAttribute - f.attributes[i];
+        else
+          f.derivatives[i].x += f.attributes[i] - deltaAttribute;
+      }
+      else
+      {
+        if (deltaY > 0.0f)
+          f.derivatives[i].y += deltaAttribute - f.attributes[i];
+        else
+          f.derivatives[i].y += f.attributes[i] - deltaAttribute;
+      }
+    }
+    return;
+  };
   // NOTE: it is okay to restructure this function to allow these tasks to use the
   //  same code paths. Be aware, however, that all of them need to remain working!
   //  (e.g., if you break Flat while implementing Correct, you won't get points
@@ -624,65 +777,6 @@ void Pipeline<p, P, flags>::rasterize_triangle(
   if constexpr ((flags & PipelineMask_Interp) == Pipeline_Interp_Flat)
   {
     // A1T3: flat triangles
-    auto TriArea = [](float ax, float ay, float bx, float by, float cx, float cy)
-    {
-      double abx = (double)bx - (double)ax;
-      double aby = (double)by - (double)ay;
-      double acx = (double)cx - (double)ax;
-      double acy = (double)cy - (double)ay;
-      return abs(abx*acy - aby*acx) / 2.0f;
-    };
-
-    // Test edge va-vb is a left edge or top edge
-    auto TestLeftOrTopEdge = [](ClippedVertex const &va, ClippedVertex const &vb, ClippedVertex const &vc)
-    {
-      // If edge is horizontal
-      if (va.fb_position.y == vb.fb_position.y)
-      {
-        if (va.fb_position.y > vc.fb_position.y)
-          return true;
-        else
-          return false;
-      } else {
-        float slope;
-        if (va.fb_position.x < vb.fb_position.x) {
-          slope = (vb.fb_position.y - va.fb_position.y) / (vb.fb_position.x - va.fb_position.x);
-          if (slope > 0.0f) {
-            if ((vc.fb_position.y - va.fb_position.y) < slope * (vc.fb_position.x - va.fb_position.x))
-              return true;
-            else 
-              return false;
-          } else {
-            if ((vc.fb_position.y - va.fb_position.y) > slope * (vc.fb_position.x - va.fb_position.x))
-              return true;
-            else
-              return false;
-          }
-        } else if (va.fb_position.x > vb.fb_position.x) {
-          slope = (va.fb_position.y - vb.fb_position.y) / (va.fb_position.x - vb.fb_position.x);
-          if (slope > 0.0f)
-          {
-            if ((vc.fb_position.y - vb.fb_position.y) < slope * (vc.fb_position.x - vb.fb_position.x))
-              return true;
-            else
-              return false;
-          }
-          else
-          {
-            if ((vc.fb_position.y - vb.fb_position.y) > slope * (vc.fb_position.x - vb.fb_position.x))
-              return true;
-            else
-              return false;
-          }
-        } else {
-          if (vc.fb_position.x > va.fb_position.x)
-            return true;
-          else
-            return false;
-        }
-      }
-    };
-
     float bottomLeftX, bottomLeftY, topRightX, topRightY;
     // Find bottom left corner
     bottomLeftX = va.fb_position.x;
@@ -773,19 +867,169 @@ void Pipeline<p, P, flags>::rasterize_triangle(
   {
     // A1T5: screen-space smooth triangles
     // TODO: rasterize triangle (see block comment above this function).
+    float bottomLeftX, bottomLeftY, topRightX, topRightY;
+    // Find bottom left corner
+    bottomLeftX = va.fb_position.x;
+    if (vb.fb_position.x < bottomLeftX)
+      bottomLeftX = vb.fb_position.x;
+    if (vc.fb_position.x < bottomLeftX)
+      bottomLeftX = vc.fb_position.x;
+    bottomLeftY = va.fb_position.y;
+    if (vb.fb_position.y < bottomLeftY)
+      bottomLeftY = vb.fb_position.y;
+    if (vc.fb_position.y < bottomLeftY)
+      bottomLeftY = vc.fb_position.y;
+    // Find topottom reft corner
+    topRightX = va.fb_position.x;
+    if (vb.fb_position.x > topRightX)
+      topRightX = vb.fb_position.x;
+    if (vc.fb_position.x > topRightX)
+      topRightX = vc.fb_position.x;
+    topRightY = va.fb_position.y;
+    if (vb.fb_position.y > topRightY)
+      topRightY = vb.fb_position.y;
+    if (vc.fb_position.y > topRightY)
+      topRightY = vc.fb_position.y;
 
-    // As a placeholder, here's code that calls the Flat interpolation version of the function:
-    //(remove this and replace it with a real solution)
-    Pipeline<PrimitiveType::Lines, P, (flags & ~PipelineMask_Interp) | Pipeline_Interp_Flat>::rasterize_triangle(va, vb, vc, emit_fragment);
+    // Find centers
+    bottomLeftX = floor(bottomLeftX) + 0.5f;
+    bottomLeftY = floor(bottomLeftY) + 0.5f;
+    topRightX = floor(topRightX) + 0.5f;
+    topRightY = floor(topRightY) + 0.5f;
+
+    double totalArea = TriArea(va.fb_position.x, va.fb_position.y, vb.fb_position.x, vb.fb_position.y, vc.fb_position.x, vc.fb_position.y);
+    for (float i = bottomLeftX; i <= topRightX; i = i + 1.0f)
+    {
+      for (float j = bottomLeftY; j <= topRightY; j = j + 1.0f)
+      {
+        double subArea1 = TriArea(va.fb_position.x, va.fb_position.y, vb.fb_position.x, vb.fb_position.y, i, j);
+        double subArea2 = TriArea(va.fb_position.x, va.fb_position.y, vc.fb_position.x, vc.fb_position.y, i, j);
+        double subArea3 = TriArea(vb.fb_position.x, vb.fb_position.y, vc.fb_position.x, vc.fb_position.y, i, j);
+        double u = subArea1 / totalArea;
+        double v = subArea2 / totalArea;
+        double w = subArea3 / totalArea;
+        if (subArea1 + subArea2 + subArea3 == totalArea)
+        {
+          Fragment f;
+          float fbz = (float)((double)va.fb_position.z * w + (double)vb.fb_position.z * v + (double)vc.fb_position.z * u);
+          for (uint32_t k = 0; k < f.attributes.size(); ++k)
+          {
+            f.attributes[k] = (float)((double)va.attributes[k] * w + (double)vb.attributes[k] * v + (double)vc.attributes[k] * u);
+          }
+          f.fb_position = Vec3(i, j, fbz);
+          f.derivatives.fill(Vec2(0.0f, 0.0f));
+          CalculateScreenSpaceDerivatives(va, vb, vc, totalArea, f, 1.0f, 0.0f);
+          CalculateScreenSpaceDerivatives(va, vb, vc, totalArea, f, -1.0f, 0.0f);
+          CalculateScreenSpaceDerivatives(va, vb, vc, totalArea, f, 0.0f, 1.0f);
+          CalculateScreenSpaceDerivatives(va, vb, vc, totalArea, f, 0.0f, -1.0f);
+          for (uint32_t k = 0; k < f.derivatives.size(); ++k)
+          {
+            f.derivatives[k].x = f.derivatives[k].x / 2.0f;
+            f.derivatives[k].y = f.derivatives[k].y / 2.0f;
+          }
+          if (subArea1 == 0.0f) {
+            if (TestLeftOrTopEdge(va, vb, vc))
+              emit_fragment(f);
+          }
+          else if (subArea2 == 0.0f) {
+            if (TestLeftOrTopEdge(va, vc, vb))
+              emit_fragment(f);
+          }
+          else if (subArea3 == 0.0f) {
+            if (TestLeftOrTopEdge(vb, vc, va))
+              emit_fragment(f);
+          }
+          else
+            emit_fragment(f);
+        }
+      }
+    }
   }
   else if constexpr ((flags & PipelineMask_Interp) == Pipeline_Interp_Correct)
   {
     // A1T5: perspective correct triangles
     // TODO: rasterize triangle (block comment above this function).
+    float bottomLeftX, bottomLeftY, topRightX, topRightY;
+    // Find bottom left corner
+    bottomLeftX = va.fb_position.x;
+    if (vb.fb_position.x < bottomLeftX)
+      bottomLeftX = vb.fb_position.x;
+    if (vc.fb_position.x < bottomLeftX)
+      bottomLeftX = vc.fb_position.x;
+    bottomLeftY = va.fb_position.y;
+    if (vb.fb_position.y < bottomLeftY)
+      bottomLeftY = vb.fb_position.y;
+    if (vc.fb_position.y < bottomLeftY)
+      bottomLeftY = vc.fb_position.y;
+    // Find topottom reft corner
+    topRightX = va.fb_position.x;
+    if (vb.fb_position.x > topRightX)
+      topRightX = vb.fb_position.x;
+    if (vc.fb_position.x > topRightX)
+      topRightX = vc.fb_position.x;
+    topRightY = va.fb_position.y;
+    if (vb.fb_position.y > topRightY)
+      topRightY = vb.fb_position.y;
+    if (vc.fb_position.y > topRightY)
+      topRightY = vc.fb_position.y;
 
-    // As a placeholder, here's code that calls the Screen-space interpolation function:
-    //(remove this and replace it with a real solution)
-    Pipeline<PrimitiveType::Lines, P, (flags & ~PipelineMask_Interp) | Pipeline_Interp_Screen>::rasterize_triangle(va, vb, vc, emit_fragment);
+    // Find centers
+    bottomLeftX = floor(bottomLeftX) + 0.5f;
+    bottomLeftY = floor(bottomLeftY) + 0.5f;
+    topRightX = floor(topRightX) + 0.5f;
+    topRightY = floor(topRightY) + 0.5f;
+
+    double totalArea = TriArea(va.fb_position.x, va.fb_position.y, vb.fb_position.x, vb.fb_position.y, vc.fb_position.x, vc.fb_position.y);
+    for (float i = bottomLeftX; i <= topRightX; i = i + 1.0f)
+    {
+      for (float j = bottomLeftY; j <= topRightY; j = j + 1.0f)
+      {
+        double subArea1 = TriArea(va.fb_position.x, va.fb_position.y, vb.fb_position.x, vb.fb_position.y, i, j);
+        double subArea2 = TriArea(va.fb_position.x, va.fb_position.y, vc.fb_position.x, vc.fb_position.y, i, j);
+        double subArea3 = TriArea(vb.fb_position.x, vb.fb_position.y, vc.fb_position.x, vc.fb_position.y, i, j);
+        double u = subArea1 / totalArea;
+        double v = subArea2 / totalArea;
+        double w = subArea3 / totalArea;
+        if (subArea1 + subArea2 + subArea3 == totalArea)
+        {
+          Fragment f;
+          float fbz = (float)((double)va.fb_position.z * w + (double)vb.fb_position.z * v + (double)vc.fb_position.z * u);
+          float fbw = (float)((double)va.inv_w * w + (double)vb.inv_w * v + (double)vc.inv_w * u);
+          for (uint32_t k = 0; k < f.attributes.size(); ++k)
+          {
+            f.attributes[k] = (float)(((double)va.attributes[k] * va.inv_w * w + (double)vb.attributes[k] * vb.inv_w * v + (double)vc.attributes[k] * vc.inv_w * u) / fbw);
+          }
+          f.fb_position = Vec3(i, j, fbz);
+          f.derivatives.fill(Vec2(0.0f, 0.0f));
+          CalculateCorrectDerivatives(va, vb, vc, totalArea, f, 1.0f, 0.0f);
+          CalculateCorrectDerivatives(va, vb, vc, totalArea, f, -1.0f, 0.0f);
+          CalculateCorrectDerivatives(va, vb, vc, totalArea, f, 0.0f, 1.0f);
+          CalculateCorrectDerivatives(va, vb, vc, totalArea, f, 0.0f, -1.0f);
+          for (uint32_t k = 0; k < f.derivatives.size(); ++k)
+          {
+            f.derivatives[k].x = f.derivatives[k].x / 2.0f;
+            f.derivatives[k].y = f.derivatives[k].y / 2.0f;
+          }
+          if (subArea1 == 0.0f)
+          {
+            if (TestLeftOrTopEdge(va, vb, vc))
+              emit_fragment(f);
+          }
+          else if (subArea2 == 0.0f)
+          {
+            if (TestLeftOrTopEdge(va, vc, vb))
+              emit_fragment(f);
+          }
+          else if (subArea3 == 0.0f)
+          {
+            if (TestLeftOrTopEdge(vb, vc, va))
+              emit_fragment(f);
+          }
+          else
+            emit_fragment(f);
+        }
+      }
+    }
   }
 }
 

@@ -915,7 +915,8 @@ void Halfedge_Mesh::extrude_positions(FaceRef face, Vec3 move, float shrink)
   HalfedgeRef h = face->halfedge;
   do {
     VertexRef v = h->vertex;
-    v->position *= (1 - shrink);
+    VertexRef vOuter = h->twin->next->next->vertex;
+    v->position = vOuter->position * (1 - shrink);
     v->position += move;
     h = h->next;
   } while (h != face->halfedge);

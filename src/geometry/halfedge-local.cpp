@@ -528,7 +528,6 @@ std::optional<Halfedge_Mesh::FaceRef> Halfedge_Mesh::extrude_face(FaceRef f)
   h = og;
   do
   {
-    EdgeRef e = h->edge;
     VertexRef v = h->vertex;
     VertexRef vNext = h->next->vertex;
     VertexRef vExtrude = vertexMap[v];
@@ -727,7 +726,6 @@ std::optional<Halfedge_Mesh::VertexRef> Halfedge_Mesh::collapse_edge(EdgeRef e)
         for (uint32_t i = 0; i < v2V->degree(); i++)
         {
           HalfedgeRef commonVertexHalfedgeTwin = commonVertexHalfedge->twin;
-          VertexRef commonVertexConnectedVertex = commonVertexHalfedgeTwin->vertex;
           if ((commonVertexHalfedgeTwin->vertex != v1) && (commonVertexHalfedgeTwin->vertex != v2)) {
             if (commonVertices.count(commonVertexHalfedgeTwin->vertex) == 0)
               isTriangle = false;

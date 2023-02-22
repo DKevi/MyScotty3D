@@ -1,4 +1,4 @@
-AndrewID:
+AndrewID: mingyuad
 
 Under each task, write 'Fully implemented.', 'Not attempted.', or explain your attempted solution and where it fails.
 
@@ -47,13 +47,13 @@ Task A2Lx8:
 Required Global Operations:
 
 Task A2G1:
-	Fully implemented.
+	Not attempted.
 
 Task A2G2:
-	Fully implemented.
+	Not attempted.
 
 Task A2G3:
-	Fully implemented.
+	Not attempted.
 
 
 Optional Global Operations:

@@ -149,3 +149,45 @@ Test test_a2_l4_extrude_face_simple_same("a2.l4.extrude_face.simple.same", []() 
 	expect_extrude(mesh, face, Vec3(0.0f, 0.0f, 1.0f), 0.0f, after);
 });
 
+/*
+Initial mesh:
+0---1\
+|   | \
+|   |  2
+|   | /
+3---4/
+
+Extrude face on Face: 0-3-4-1
+
+After mesh:
+2-----3\
+|\   /| \
+| 0-1 |  \
+| | | |   4
+| 7-8 |  /
+|/   \| /
+5-----6/
+*/
+
+Test test_a2_l4_extrude_face_simple_xyzmove("a2.l4.extrude_face.simple.xyzmove", []()
+                                            {
+ Halfedge_Mesh mesh = Halfedge_Mesh::from_indexed_faces({
+  Vec3(-1.0f, 1.0f, 0.0f), Vec3(1.0f, 1.0f, 0.0f),
+                                              Vec3(2.0f, 0.0f, 0.0f),
+  Vec3(-1.0f,-1.0f, 0.0f), Vec3(1.0f, -1.0f, 0.0f)
+ }, {
+  {0,3,4,1}, {1,4,2}
+ });
+ Halfedge_Mesh::FaceRef face = mesh.faces.begin();
+
+ Halfedge_Mesh after = Halfedge_Mesh::from_indexed_faces({
+  Vec3(-1.0f, 1.0f, 0.0f),           Vec3(1.0f, 1.0f, 0.0f),
+        Vec3(-0.4f, 0.7f, 0.3f),  Vec3(0.6f, 0.7f, 0.3f),
+                                                                  Vec3(2.0f, 0.0f, 0.0f),
+        Vec3(-0.4f,-0.3f, 0.3f),  Vec3(0.6f,-0.3f, 0.3f),
+  Vec3(-1.0f,-1.0f, 0.0f),           Vec3(1.0f, -1.0f, 0.0f)
+ }, {
+  {0,2,3,1}, {0,7,5,2}, {2,5,6,3}, {3,6,8,1}, {5,7,8,6}, {1,8,4}
+ });
+
+ expect_extrude(mesh, face, Vec3{0.1f, 0.2f, 0.3f}, 0.5f, after); });

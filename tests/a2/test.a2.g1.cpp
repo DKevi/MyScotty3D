@@ -44,7 +44,9 @@ static void expect_triangulate(Halfedge_Mesh& mesh) {
 	}
 
 	// check for expected number of elements
-	if (numEdges + c != mesh.edges.size()) {
+  printf("Asked Num of Edges: %zd\n", numEdges + c);
+  printf("Asked Num of Faces: %zd\n", numFaces);
+  if (numEdges + c != mesh.edges.size()) {
 		throw Test::error("Triangulation did not create the expected number of edges!");
 	}
 	if (numFaces + c != mesh.faces.size()) {

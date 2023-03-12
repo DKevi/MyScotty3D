@@ -47,13 +47,13 @@ Task A2Lx8:
 Required Global Operations:
 
 Task A2G1:
-	Not attempted.
+	Fully implemented.
 
 Task A2G2:
-	Not attempted.
+	Fully implemented.
 
 Task A2G3:
-	Not attempted.
+	Fully implemented.
 
 
 Optional Global Operations:
@@ -61,7 +61,7 @@ Optional Global Operations:
 Selected operation: [write A2Go1, A2Go2, or A2Go3 here]
 
 Task A2Go1:
-	Not attempted.
+	Fully implemented.
 
 Task A2Go2:
 	Not attempted.
@@ -71,7 +71,10 @@ Task A2Go3:
 
 Model:
 	How did you make it?
+    I imported a skull object from online and also dodecahedron. I Catmull-Clark both mesh, once for skull and couple times for dodecahedron. Then, transform both models to look like the skull has a dodecahedron eye.
 
 	What effort did you put into it?
+    Find the model and make it interesting yet using the operations we implemented
 
 	Any free model sources you need to credit?
+    https://free3d.com/3d-model/skull-v3--785914.html

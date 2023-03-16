@@ -351,7 +351,7 @@ bool Halfedge_Mesh::loop_subdivide()
   };
 
   // Now flip any new edge that connects an old and new vertex.
-  for (int i = 0; i < new_edges.size(); i++)
+  for (size_t i = 0; i < new_edges.size(); i++)
   {
     EdgeRef e = new_edges[i];
     VertexRef v1 = e->halfedge->vertex;

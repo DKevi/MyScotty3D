@@ -16,6 +16,8 @@ For `do_trace` to work, its camera rays must actually correspond to sensor pixel
 
 <p align="center"><img src="images/camera_coordinate_system.png" ></p>
 
+We've provided test cases in `tests/test.a3.task1.sample_ray.cpp` to construct a camera and plane, and see whether the rays coming from the camera will hit the plane.
+
 ## Step 2: Basic Super-sampling
 Notice that `Pathtracer::do_trace` calls `trace()` multiple times for each pixel of the image, trusting `Camera::sample_ray` to pick a new random location within the pixel. This, in turn, relies on `Rect::sample`.
 

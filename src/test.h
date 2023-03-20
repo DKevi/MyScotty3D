@@ -63,6 +63,7 @@ public:
 	static bool differs(Mat4 a, Mat4 b);
 	static bool differs(Spectrum a, Spectrum b);
 	static bool differs(std::vector<Vec3> a, std::vector<Vec3> b);
+	static bool differs(std::vector<Mat4> a, std::vector<Mat4> b);
 
 	//this is specialized for a fair few more things:
 	// (see skeleton.cpp)
@@ -100,8 +101,5 @@ public:
 	static double total_squared_error(Spectrum a, Spectrum b);
 	static double print_empirical_threshold(const std::vector<double>& ref,
 	                                        const std::function<std::vector<double>()>& histogram);
-	static double sphere_integrate_pdf(uint32_t W, uint32_t H, std::function<float(Vec3)> pdf);
-	static double hemisphere_integrate_pdf(uint32_t W, uint32_t H, std::function<float(Vec3)> pdf);
-
 	static bool run_generators; //for test cases that need to run something against reference to generate data
 };

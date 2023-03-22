@@ -33,7 +33,18 @@ void BVH<Primitive>::build(std::vector<Primitive>&& prims, size_t max_leaf_size)
     // size configuration.
 
 	//TODO
-
+  auto sorted_primitives = std::copy(primitives);
+  std::sort(sorted_primitives.begin(), sorted_primitives.end(), [](const Primitive &a, const Primitive &b)
+            { return a.bbox().max.x < b.bbox().max.x; });
+  float SAH_min = FLT_MAX;
+  int index_min;
+  for (size_t i = 0; i < sorted_primitives.size() - 1; i++) {
+    std::vector<Primitive> left, right;
+    std::partition_copy(sorted_primitives.begin(), sorted_primitives.end(),
+                        left.begin(), right.begin(),
+                        [sorted_primitives[i]](const Primitive &a)
+                        { return a.bbox().max.x <= sorted_primitives[i].bbox().min.x; });
+  }
 }
 
 template<typename Primitive> Trace BVH<Primitive>::hit(const Ray& ray) const {

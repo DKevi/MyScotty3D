@@ -14,9 +14,23 @@ BBox Triangle::bbox() const {
 
     // Beware of flat/zero-volume boxes! You may need to
     // account for that here, or later on in BBox::hit.
+  float minX = std::min(vertex_list[v0].position.x, vertex_list[v1].position.x);
+  minX = std::min(minX, vertex_list[v2].position.x);
+  float minY = std::min(vertex_list[v0].position.y, vertex_list[v1].position.y);
+  minY = std::min(minX, vertex_list[v2].position.y);
+  float minZ = std::min(vertex_list[v0].position.z, vertex_list[v1].position.z);
+  minZ = std::min(minZ, vertex_list[v2].position.z);
 
-    BBox box;
-    return box;
+  float maxX = std::max(vertex_list[v0].position.x, vertex_list[v1].position.x);
+  maxX = std::max(minX, vertex_list[v2].position.x);
+  float maxY = std::max(vertex_list[v0].position.y, vertex_list[v1].position.y);
+  maxY = std::max(minX, vertex_list[v2].position.y);
+  float maxZ = std::max(vertex_list[v0].position.z, vertex_list[v1].position.z);
+  maxZ = std::max(minX, vertex_list[v2].position.z);
+  BBox box;
+  box.enclose(Vec3(minX, minY, minZ));
+  box.enclose(Vec3(maxX, maxY, maxZ));
+  return box;
 }
 
 Trace Triangle::hit(const Ray& ray) const {
@@ -32,16 +46,54 @@ Trace Triangle::hit(const Ray& ray) const {
 
     // TODO (PathTracer): Task 2
     // Intersect the ray with the triangle defined by the three vertices.
+    float kEpsilon = 0.000001f;
+    bool hit_flag = true;
+
+    Vec3 v0v1 = v_1.position - v_0.position;
+    Vec3 v0v2 = v_2.position - v_0.position;
+
+    Vec3 pvec = cross(ray.dir, v0v2);
+    float det = dot(v0v1, pvec);
+    
+    if (std::abs(det) < kEpsilon) {
+      hit_flag = false;
+      Trace ret;
+      ret.origin = ray.point;
+      ret.hit = hit_flag;                   
+      ret.distance = 0.0f;                  
+      ret.position = Vec3{};                
+      ret.normal = Vec3{};                                  
+      ret.uv = Vec2{};                      
+        
+      return ret;
+    }
+
+    float invDet = 1.0f / det;
+    
+    Vec3 tvec = ray.point - v_0.position;
+    float u = dot(tvec, pvec) * invDet;
+    if (u < 0.0f || u > 1.0f)
+      hit_flag = false;
+
+    Vec3 qvec = cross(tvec, v0v1);
+    float v = dot(ray.dir, qvec) * invDet;
+    if (v < 0.0f || u + v > 1.0f)
+      hit_flag = false;
+
+    float t = dot(v0v2, qvec) * invDet;
+
+    if (t < ray.dist_bounds.x || t > ray.dist_bounds.y)
+      hit_flag = false;
 
     Trace ret;
     ret.origin = ray.point;
-    ret.hit = false;       // was there an intersection?
-    ret.distance = 0.0f;   // at what distance did the intersection occur?
-    ret.position = Vec3{}; // where was the intersection?
-    ret.normal = Vec3{};   // what was the surface normal at the intersection?
-                           // (this should be interpolated between the three vertex normals)
-	ret.uv = Vec2{};	   // What was the uv associated with the point of intersection?
-						   // (this should be interpolated between the three vertex uvs)
+    ret.hit = hit_flag;                                                      // was there an intersection?
+    ret.distance = t;                                                        // at what distance did the intersection occur?
+    ret.position = ray.point + t * ray.dir;                                  // where was the intersection?
+    ret.normal = u * v_1.normal + v * v_2.normal + (1 - u - v) * v_0.normal; // what was the surface normal at the intersection?
+                                                                             // (this should be interpolated between the three vertex normals)
+    ret.uv = u * v_1.uv + v * v_2.uv + (1 - u - v) * v_0.uv;                 // What was the uv associated with the point of intersection?
+                                                                             // (this should be interpolated between the three vertex uvs)
     return ret;
 }
 

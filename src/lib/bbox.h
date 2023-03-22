@@ -84,9 +84,76 @@ struct BBox {
 		// Implement ray - bounding box intersection test
 		// If the ray intersected the bounding box within the range given by
 		// [times.x,times.y], update times with the new intersection times.
+    float tmin, txmin, tymin, tzmin;
+    float tmax, txmax, tymax, tzmax;
 
-		return false;
-	}
+    Vec3 invdir = 1 / ray.dir;
+
+    if (invdir.x >= 0)
+    {
+      txmin = (min.x - ray.point.x) * invdir.x;
+      txmax = (max.x - ray.point.x) * invdir.x;
+    }
+    else
+    {
+      txmin = (max.x - ray.point.x) * invdir.x;
+      txmax = (min.x - ray.point.x) * invdir.x;
+    }
+
+    if (invdir.y >= 0)
+    {
+      tymin = (min.y - ray.point.y) * invdir.y;
+      tymax = (max.y - ray.point.y) * invdir.y;
+    }
+    else
+    {
+      tymin = (max.y - ray.point.y) * invdir.y;
+      tymax = (min.y - ray.point.y) * invdir.y;
+    }
+
+    if ((txmin > tymax) || (tymin > txmax))
+      return false;
+
+    if (tymin > txmin)
+      tmin = tymin;
+    else
+      tmin = txmin;
+
+    if (tymax < txmax)
+      tmax = tymax;
+    else
+      tmax = txmax;
+
+    if (invdir.z >= 0)
+    {
+      tzmin = (min.z - ray.point.z) * invdir.z;
+      tzmax = (max.z - ray.point.z) * invdir.z;
+    }
+    else
+    {
+      tzmin = (max.z - ray.point.z) * invdir.z;
+      tzmax = (min.z - ray.point.z) * invdir.z;
+    }
+
+    if ((tmin > tzmax) || (tzmin > tmax))
+      return false;
+
+    if (tzmin > tmin)
+      tmin = tzmin;
+
+    if (tzmax < tmax)
+      tmax = tzmax;
+
+    if (tmax < times.x || tmin > times.y)
+      return false;
+
+    if (tmin >= times.x)
+      times.x = tmin;
+    if (tmax <= times.y) 
+      times.y = tmax;
+
+    return true;
+  }
 
 	/// Get the eight corner points of the bounding box
 	std::vector<Vec3> corners() const {

@@ -17,16 +17,16 @@ BBox Triangle::bbox() const {
   float minX = std::min(vertex_list[v0].position.x, vertex_list[v1].position.x);
   minX = std::min(minX, vertex_list[v2].position.x);
   float minY = std::min(vertex_list[v0].position.y, vertex_list[v1].position.y);
-  minY = std::min(minX, vertex_list[v2].position.y);
+  minY = std::min(minY, vertex_list[v2].position.y);
   float minZ = std::min(vertex_list[v0].position.z, vertex_list[v1].position.z);
   minZ = std::min(minZ, vertex_list[v2].position.z);
 
   float maxX = std::max(vertex_list[v0].position.x, vertex_list[v1].position.x);
-  maxX = std::max(minX, vertex_list[v2].position.x);
+  maxX = std::max(maxX, vertex_list[v2].position.x);
   float maxY = std::max(vertex_list[v0].position.y, vertex_list[v1].position.y);
-  maxY = std::max(minX, vertex_list[v2].position.y);
+  maxY = std::max(maxY, vertex_list[v2].position.y);
   float maxZ = std::max(vertex_list[v0].position.z, vertex_list[v1].position.z);
-  maxZ = std::max(minX, vertex_list[v2].position.z);
+  maxZ = std::max(maxZ, vertex_list[v2].position.z);
   BBox box;
   box.enclose(Vec3(minX, minY, minZ));
   box.enclose(Vec3(maxX, maxY, maxZ));
@@ -46,7 +46,7 @@ Trace Triangle::hit(const Ray& ray) const {
 
     // TODO (PathTracer): Task 2
     // Intersect the ray with the triangle defined by the three vertices.
-    float kEpsilon = 0.000001f;
+    float kEpsilon = EPS_F;
     bool hit_flag = true;
 
     Vec3 v0v1 = v_1.position - v_0.position;
@@ -60,7 +60,7 @@ Trace Triangle::hit(const Ray& ray) const {
       Trace ret;
       ret.origin = ray.point;
       ret.hit = hit_flag;                   
-      ret.distance = 0.0f;                  
+      ret.distance = FLT_MAX;                  
       ret.position = Vec3{};                
       ret.normal = Vec3{};                                  
       ret.uv = Vec2{};                      

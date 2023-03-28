@@ -126,3 +126,89 @@ Test test_a3_task3_bvh_build_simple("a3.task3.bvh.build.simple", []() {
 	expect_bvh(verts, 2, 1);
 	expect_bvh(verts, 4, 2);
 });
+
+Test test_a3_task3_bvh_build_simple_1("a3.task3.bvh.build.simple.1", []() {
+    auto verts = std::vector{
+        Vec3{0, 0, 0}, Vec3{1, 0, 0}, Vec3{0, 1, 0},  // Triangle 1
+        Vec3{0, 0, 1}, Vec3{1, 0, 1}, Vec3{0, 1, 1},  // Triangle 2
+        Vec3{0, 0, 3}, Vec3{1, 0, 3}, Vec3{0, 1, 3},  // Triangle 3
+        Vec3{0, 0, 4}, Vec3{1, 0, 4}, Vec3{0, 1, 4},  // Triangle 4
+    };
+
+    expect_bvh(verts, 2, 1);
+    expect_bvh(verts, 3, 1.5f);
+    expect_bvh(verts, 4, 2);
+});
+
+Test test_a3_task3_bvh_build_simple_2("a3.task3.bvh.build.simple.2", []() {
+    auto verts = std::vector{
+        Vec3{0, 0, 0}, Vec3{1, 0, 0}, Vec3{0, 1, 0},  // Triangle 1
+        Vec3{0, 0, 1}, Vec3{1, 0, 1}, Vec3{0, 1, 1},  // Triangle 2
+        Vec3{0, 0, 3}, Vec3{1, 0, 3}, Vec3{0, 1, 3},  // Triangle 3
+        Vec3{0, 0, 4}, Vec3{1, 0, 4}, Vec3{0, 1, 4},  // Triangle 4
+        Vec3{0, 0, 6}, Vec3{1, 0, 6}, Vec3{0, 1, 6},  // Triangle 5
+        Vec3{0, 0, 7}, Vec3{1, 0, 7}, Vec3{0, 1, 7},  // Triangle 6
+    };
+
+    expect_bvh(verts, 2, 1);
+    expect_bvh(verts, 3, 1.5f);
+    expect_bvh(verts, 4, 2);
+});
+
+Test test_a3_task3_bvh_build_simple_3("a3.task3.bvh.build.simple.3", []() {
+    auto verts = std::vector{
+        Vec3{0, 0, 0},  Vec3{1, 0, 0},  Vec3{0, 1, 0},   // Triangle 1
+        Vec3{0, 0, 1},  Vec3{1, 0, 1},  Vec3{0, 1, 1},   // Triangle 2
+        Vec3{0, 0, 3},  Vec3{1, 0, 3},  Vec3{0, 1, 3},   // Triangle 3
+        Vec3{0, 0, 4},  Vec3{1, 0, 4},  Vec3{0, 1, 4},   // Triangle 4
+        Vec3{0, 0, 6},  Vec3{1, 0, 6},  Vec3{0, 1, 6},   // Triangle 5
+        Vec3{0, 0, 7},  Vec3{1, 0, 7},  Vec3{0, 1, 7},   // Triangle 6
+        Vec3{0, 0, 9},  Vec3{1, 0, 9},  Vec3{0, 1, 9},   // Triangle 5
+        Vec3{0, 0, 10}, Vec3{1, 0, 10}, Vec3{0, 1, 10},  // Triangle 6
+    };
+
+    expect_bvh(verts, 2, 1);
+    expect_bvh(verts, 3, 1.5f);
+    expect_bvh(verts, 4, 2);
+});
+
+Test test_a3_task3_bvh_build_simple_4("a3.task3.bvh.build.simple.4", []() {
+    auto verts = std::vector{
+        Vec3{0.0f, 0.0f, 0.0f},  Vec3{1.0f, 0.0f, 0.0f},
+        Vec3{0.0f, 1.0f, 0.0f},  // Triangle 1
+        Vec3{0.0f, 0.0f, 0.5f},  Vec3{1.0f, 0.0f, 1.0f},
+        Vec3{0.0f, 1.0f, 1.0f},  // Triangle 2
+        Vec3{0.0f, 0.0f, 3.0f},  Vec3{1.0f, 0.0f, 2.8f},
+        Vec3{0.0f, 1.0f, 3.2f},  // Triangle 3
+        Vec3{0.0f, 0.0f, 4.1f},  Vec3{1.0f, 0.0f, 4.3f},
+        Vec3{0.0f, 1.0f, 3.7f},  // Triangle 4
+        Vec3{0.0f, 0.0f, 6.0f},  Vec3{1.0f, 0.0f, 6.0f},
+        Vec3{0.0f, 1.0f, 6.0f},  // Triangle 5
+        Vec3{0.0f, 0.0f, 7.0f},  Vec3{1.0f, 0.0f, 7.0f},
+        Vec3{0.0f, 1.0f, 7.0f},  // Triangle 6
+        Vec3{0.0f, 0.0f, 9.5f},  Vec3{1.0f, 0.0f, 8.5f},
+        Vec3{0.0f, 1.0f, 9.1f},  // Triangle 5
+        Vec3{0.0f, 0.0f, 10.0f}, Vec3{1.0f, 0.0f, 12.0f},
+        Vec3{0.0f, 1.0f, 11.0f},  // Triangle 6
+    };
+
+    expect_bvh(verts, 2, 1);
+    expect_bvh(verts, 3, 1.5f);
+    expect_bvh(verts, 4, 2);
+});
+
+// ? Edge case, might get a bunch of triangles in one bucket and 0 in all others
+Test test_a3_task3_bvh_build_overlap_1("a3.task3.bvh.build.overlap.1", []() {
+    auto verts = std::vector{
+        Vec3{0, 0, 0}, Vec3{1, 0, 0}, Vec3{0, 1, 0},  // Triangle 1
+        Vec3{0, 0, 1}, Vec3{1, 0, 1}, Vec3{0, 1, 1},  // Triangle 2
+        Vec3{0, 0, 0}, Vec3{1, 0, 0}, Vec3{0, 1, 0},  // Triangle 1
+        Vec3{0, 0, 1}, Vec3{1, 0, 1}, Vec3{0, 1, 1},  // Triangle 2
+        Vec3{0, 0, 0}, Vec3{1, 0, 0}, Vec3{0, 1, 0},  // Triangle 1
+        Vec3{0, 0, 1}, Vec3{1, 0, 1}, Vec3{0, 1, 1},  // Triangle 2
+    };
+
+    expect_bvh(verts, 2, 1);
+    expect_bvh(verts, 3, 1.5f);
+    expect_bvh(verts, 4, 2);
+});

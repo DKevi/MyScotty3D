@@ -16,16 +16,16 @@ Task A3T3:
 --- A3.5 ---
 
 Task A3T4:
-	Fully implemented.
+	Not attempted.
 
 Task A3T5:
-	Fully implemented.
+	Not attempted.
 
 Task A3T6:
-	Fully implemented.
+	Not attempted.
 
 Task A3T7:
-	Fully implemented.
+	Not attempted.
 
 render.png:
 	How did you make it?

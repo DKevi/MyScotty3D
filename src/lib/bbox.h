@@ -87,7 +87,7 @@ struct BBox {
     float tmin, txmin, tymin, tzmin;
     float tmax, txmax, tymax, tzmax;
 
-    Vec3 invdir = 1 / ray.dir;
+    Vec3 invdir = 1.0f / ray.dir;
 
     if (invdir.x >= 0)
     {
@@ -147,9 +147,9 @@ struct BBox {
     if (tmax < times.x || tmin > times.y)
       return false;
 
-    if (tmin >= times.x)
+    if (tmin > times.x)
       times.x = tmin;
-    if (tmax <= times.y) 
+    if (tmax < times.y) 
       times.y = tmax;
 
     return true;

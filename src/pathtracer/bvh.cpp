@@ -6,6 +6,12 @@
 
 #include <stack>
 
+#define X_AXIS 0
+#define Y_AXIS 1
+#define Z_AXIS 2
+
+#define DEBUG 0
+
 namespace PT {
 
 struct BVHBuildData {
@@ -33,18 +39,78 @@ void BVH<Primitive>::build(std::vector<Primitive>&& prims, size_t max_leaf_size)
     // size configuration.
 
 	//TODO
-  auto sorted_primitives = std::copy(primitives);
-  std::sort(sorted_primitives.begin(), sorted_primitives.end(), [](const Primitive &a, const Primitive &b)
-            { return a.bbox().max.x < b.bbox().max.x; });
-  float SAH_min = FLT_MAX;
-  int index_min;
-  for (size_t i = 0; i < sorted_primitives.size() - 1; i++) {
-    std::vector<Primitive> left, right;
-    std::partition_copy(sorted_primitives.begin(), sorted_primitives.end(),
-                        left.begin(), right.begin(),
-                        [sorted_primitives[i]](const Primitive &a)
-                        { return a.bbox().max.x <= sorted_primitives[i].bbox().min.x; });
-  }
+	std::function<void(size_t)> recursive_build_helper = [&](size_t node)
+  {
+		if (nodes[node].size <= max_leaf_size) {
+			return;
+		}
+
+		float SAH_min = FLT_MAX;
+		size_t index_min = size_t(-1);
+		BBox left_bb;
+		BBox right_bb;
+		int best_axis = -1;
+		for (int axis = X_AXIS; axis < 3; axis++) {
+			if (axis == X_AXIS)
+				std::sort(primitives.begin() + nodes[node].start, primitives.begin() + nodes[node].start + nodes[node].size, 
+									[](const Primitive &a, const Primitive &b) 
+										{ return a.bbox().max.x < b.bbox().max.x; });
+			else if (axis == Y_AXIS)
+				std::sort(primitives.begin() + nodes[node].start, primitives.begin() + nodes[node].start + nodes[node].size, 
+									[](const Primitive &a, const Primitive &b) 
+										{ return a.bbox().max.y < b.bbox().max.y; });
+			else
+				std::sort(primitives.begin() + nodes[node].start, primitives.begin() + nodes[node].start + nodes[node].size, 
+									[](const Primitive &a, const Primitive &b) 
+										{ return a.bbox().max.z < b.bbox().max.z; });
+
+			for (size_t i = nodes[node].start + 1; i < nodes[node].start + nodes[node].size; i++) {
+				BBox left = BBox();
+				BBox right = BBox();
+				for (size_t j = nodes[node].start; j < nodes[node].start + nodes[node].size; j++) {
+					if (j < i)
+						left.enclose(primitives[j].bbox());
+					else
+						right.enclose(primitives[j].bbox());
+				}
+				float SAH = left.surface_area() / nodes[node].bbox.surface_area() * float(i - nodes[node].start) 
+										+ right.surface_area() / nodes[node].bbox.surface_area() * float(nodes[node].start + nodes[node].size - i);
+				if (SAH < SAH_min) {
+					SAH_min = SAH;
+					index_min = i;
+					left_bb = left;
+					right_bb = right;
+					best_axis = axis;
+				}
+			}
+		}
+
+		if (best_axis == X_AXIS)
+				std::sort(primitives.begin() + nodes[node].start, primitives.begin() + nodes[node].start + nodes[node].size, 
+									[](const Primitive &a, const Primitive &b) 
+										{ return a.bbox().max.x < b.bbox().max.x; });
+			else if (best_axis == Y_AXIS)
+				std::sort(primitives.begin() + nodes[node].start, primitives.begin() + nodes[node].start + nodes[node].size, 
+									[](const Primitive &a, const Primitive &b) 
+										{ return a.bbox().max.y < b.bbox().max.y; });
+			else
+				std::sort(primitives.begin() + nodes[node].start, primitives.begin() + nodes[node].start + nodes[node].size, 
+									[](const Primitive &a, const Primitive &b) 
+										{ return a.bbox().max.z < b.bbox().max.z; });
+
+		size_t left_child = new_node(left_bb, nodes[node].start, index_min - nodes[node].start);
+		size_t right_child = new_node(right_bb, index_min, nodes[node].size - (index_min - nodes[node].start));
+		nodes[node].l = left_child;
+		nodes[node].r = right_child;
+		recursive_build_helper(left_child);
+		recursive_build_helper(right_child);
+  };
+	BBox root_bb;
+	for (size_t i = root_idx; i < primitives.size(); i++)
+		root_bb.enclose(primitives[i].bbox());
+
+	size_t root = new_node(root_bb, root_idx, primitives.size());
+	recursive_build_helper(root);
 }
 
 template<typename Primitive> Trace BVH<Primitive>::hit(const Ray& ray) const {
@@ -58,12 +124,79 @@ template<typename Primitive> Trace BVH<Primitive>::hit(const Ray& ray) const {
     // Again, remember you can use hit() on any Primitive value.
 
 	//TODO: replace this code with a more efficient traversal:
-    Trace ret;
-    for(const Primitive& prim : primitives) {
-        Trace hit = prim.hit(ray);
-        ret = Trace::min(ret, hit);
-    }
-    return ret;
+	std::function<Trace(const Ray&, size_t)> find_closest_hit = [&](const Ray& ray, size_t node)
+  {
+		if (nodes[node].is_leaf()) {
+			Trace ret;
+			for(size_t i = nodes[node].start; i < nodes[node].start + nodes[node].size; i++) {
+				Trace hit = primitives[i].hit(ray);
+				ret = Trace::min(ret, hit);
+			}
+
+			return ret;
+		}
+		Vec2 left_time = ray.dist_bounds;
+		Vec2 right_time = ray.dist_bounds;
+
+		bool left_hit = nodes[nodes[node].l].bbox.hit(ray, left_time);
+		bool right_hit = nodes[nodes[node].r].bbox.hit(ray, right_time);
+		if (left_hit && right_hit) {
+			if (left_time.x < right_time.x) {
+				Trace left_trace = find_closest_hit(ray, nodes[node].l);
+				if (left_trace.hit && left_trace.distance < right_time.x) {
+					return left_trace;
+				} else if (left_trace.hit) {
+					Trace right_trace = find_closest_hit(ray, nodes[node].r);
+					if (right_trace.hit && right_trace.distance < left_trace.distance)
+						return right_trace;
+					else
+						return left_trace;
+				} else {
+					return find_closest_hit(ray, nodes[node].r);
+				}
+			} else {
+				Trace right_trace = find_closest_hit(ray, nodes[node].r);
+				if (right_trace.hit && right_trace.distance < left_time.x) {
+					return right_trace;
+				} else if (right_trace.hit) {
+					Trace left_trace = find_closest_hit(ray, nodes[node].l);
+					if (left_trace.hit && left_trace.distance < right_trace.distance)
+						return left_trace;
+					else
+						return right_trace;
+				} else {
+					return find_closest_hit(ray, nodes[node].l);
+				}
+			}
+		} else if (left_hit) {
+			return find_closest_hit(ray, nodes[node].l);
+		} else if (right_hit) {
+			return find_closest_hit(ray, nodes[node].r);
+		} else {
+			Trace ret;
+      ret.origin = ray.point;
+      ret.hit = false;                   
+      ret.distance = FLT_MAX;                  
+      ret.position = Vec3{};                
+      ret.normal = Vec3{};                                  
+      ret.uv = Vec2{};                      
+        
+      return ret;
+		}
+  };
+	Vec2 times = ray.dist_bounds;
+	if (nodes[root_idx].bbox.hit(ray, times))
+		return find_closest_hit(ray, root_idx);
+	else {
+		Trace ret;
+		ret.origin = ray.point;
+		ret.hit = false;                   
+		ret.distance = FLT_MAX;                  
+		ret.position = Vec3{};                
+		ret.normal = Vec3{};                                  
+		ret.uv = Vec2{};  
+		return ret;
+	}
 }
 
 template<typename Primitive>

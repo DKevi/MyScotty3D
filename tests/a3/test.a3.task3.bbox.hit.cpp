@@ -51,3 +51,17 @@ Test test_a3_task3_bbox_hit_simple_dist_bounds("a3.task3.bbox.hit.simple_dist_bo
 		throw Test::error("BBox detected hits when it shouldn't have because of the dist_bounds!");
 	}
 });
+
+Test test_a3_task3_bbox_hit_simple_2("a3.task3.bbox.hit.simple_2", []() {
+ // Ray with components in all directions
+ std::vector<Vec3> verts;
+ verts.push_back(Vec3(-1.71f, -0.56f, -1.18f));
+ verts.push_back(Vec3(-1.67f, -0.38f, -0.97f));
+
+ Ray ray = Ray(Vec3(0.f, 0.f, 0.f), Vec3(-0.817033f, -0.198467f, -0.541358f));
+ Vec2 dist_bounds = Vec2(0.f, FLT_MAX);
+
+ if (!try_intersect(verts, ray, dist_bounds)) {
+  throw Test::error("BBox did not detect any hits when it should!");
+ }
+});

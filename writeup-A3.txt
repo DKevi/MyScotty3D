@@ -16,19 +16,19 @@ Task A3T3:
 --- A3.5 ---
 
 Task A3T4:
-	Not attempted.
+	Fully implemented.
 
 Task A3T5:
-	Not attempted.
+	Fully implemented.
 
 Task A3T6:
-	Not attempted.
+	Fully implemented.
 
 Task A3T7:
-	Not attempted.
+	Fully implemented.
 
 render.png:
 	How did you make it?
-
+	Added some glass and mirror balls and dodecahedron to a grace enviroment.
 	Any free model sources you need to credit?
 

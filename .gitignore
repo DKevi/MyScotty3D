@@ -8,3 +8,5 @@ objs/
 README-SDL.txt
 SDL2.dll
 nest-libs/
+media/exr/
+media/asst3_exr_archive.zip

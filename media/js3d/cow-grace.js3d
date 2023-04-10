@@ -3,8 +3,8 @@
 	"transforms":{
 		"Camera_transform":{
 			"parent":null,
-			"translation":[1.427100539207458,1.451821327209473,1.71560001373291],
-			"rotation":[-0.1395155787467957,0.3559609949588776,0.05383671075105667,0.9224580526351929],
+			"translation":[1.4271005392074585,1.4518213272094727,1.7156000137329102],
+			"rotation":[-0.13951557874679565,0.35596099495887756,0.05383671075105667,0.9224580526351929],
 			"scale":[1,1,1]
 		},
 		"Cow_transform":{
@@ -18,13 +18,19 @@
 			"translation":[0,2.5,0],
 			"rotation":[0,0,0,1],
 			"scale":[1.5,1.5,1.5]
+		},
+		"Transform":{
+			"parent":null,
+			"translation":[0,0,0],
+			"rotation":[0,0,0,1],
+			"scale":[1,1,1]
 		}
 	},
 	"cameras":{
 		"Camera":{
 			"vertical_fov":60,
-			"aspect_ratio":1.777780055999756,
-			"near_plane":0.1000000014901161,
+			"aspect_ratio":1.7777800559997559,
+			"near_plane":0.10000000149011612,
 			"film.width":1280,
 			"film.height":720,
 			"film.samples":32,
@@ -40,6 +46,11 @@
 	"shapes":{},
 	"particles":{},
 	"textures":{
+		"Texture":{
+			"type":"Image",
+			"sampler":"nearest",
+			"image":"../exr/grace.exr"
+		},
 		"white":{
 			"type":"Constant",
 			"color":[1,1,1],
@@ -57,7 +68,13 @@
 		}
 	},
 	"delta_lights":{},
-	"env_lights":{},
+	"env_lights":{
+		"Env Light":{
+			"type":"Sphere",
+			"intensity":1,
+			"radiance":"Texture"
+		}
+	},
 	"instances":{
 		"cameras":{
 			"Camera_instance":{
@@ -73,21 +90,19 @@
 				"visible":true,
 				"collides":true,
 				"style":"Correct"
-			},
-			"Light_instance":{
-				"transform":"Light_transform",
-				"mesh":"Square",
-				"material":"em_white",
-				"visible":true,
-				"collides":true,
-				"style":"Correct"
 			}
 		},
 		"skinned_meshes":{},
 		"shapes":{},
 		"particles":{},
 		"delta_lights":{},
-		"env_lights":{}
+		"env_lights":{
+			"Env Light Instance":{
+				"transform":"Transform",
+				"light":"Env Light",
+				"visible":true
+			}
+		}
 	}
 },"animator":{"FORMAT":"js3d-v1",
 "splines":{}}}

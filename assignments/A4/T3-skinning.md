@@ -3,7 +3,7 @@
 Now that we have a skeleton set up, we need to link the skeleton to the mesh in order to get the mesh to follow the movements of the skeleton. We will implement linear blend skinning using `Skeleton::skin`, which uses weights stored on a mesh by `Skeleton::assign_bone_weights`, which in turn uses the helper `Skeleton::closest_point_on_line_segment`.
 
 Linear blend skinning means that each vertex will be transformed to a weighted sum of its positions under various bone transformations (transformations from bind space to posed space):
-$$v_i' = \sum_j w_{ij} P_j B_j^{-1} v_i$$
+$$v_i' = (\sum_j w_{ij} P_j B_j^{-1}) v_i$$
 
 Where $P_j$ is the bone-to-pose transformation for bone $j$, $B_j$ is the bone-to-bind transformation for bone $j$, and $w_{ij}$ is the weight given to bone $j$ for vertex $i$. Note that if $\sum_j w_{ij} \ne 1$, the vertex will be scaled toward/away from the origin, so you should be cognizant of this when computing weights.
 
@@ -41,7 +41,7 @@ For efficiency, you should only store nonzero bone weights in `Vertex::bone_weig
 - `Skeleton::skin`, which applies a skining transform to a halfedge mesh and produces an indexed mesh.
 
 Compute the resulting position of every vertex by doing a weighted average of the bind-to-posed transforms from each bone and applying it to the vertex.
-Compute the normals of the adjacent corners by applying the [inverse transpose](https://paroj.github.io/gltut/Illumination/Tut09%20Normal%20Transformation.html) of the transformation applied to the vertex.
+Compute the normals of the adjacent corners by applying the [inverse transpose](https://paroj.github.io/gltut/Illumination/Tut09%20Normal%20Transformation.html) of the transformation applied to the vertex. Do note that the default constructor for a `Mat4` is the **identity matrix**, not the **zero matrix**.
 
 Notice that `Skeleton::skin` outputs an indexed mesh. This is because the result of skinning is passed to drawing / rendering code that expects `Indexed_Mesh` structures, so there's no reason to stuff the results back into a `Halfedge_Mesh`. You may wish to read the `SplitEdges` case of `Indexed_Mesh::from_halfedge_mesh` for inspiration on how to structure this part of your `skin` function.
 

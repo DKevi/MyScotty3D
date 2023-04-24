@@ -49,9 +49,13 @@ std::vector<Mat4> Skeleton::bind_pose() const
 
 	for (auto const &bone : bones)
 	{
-		(void)bone; // avoid complaints about unused bone
-		// placeholder -- your code should actually compute the correct transform:
-		pose.emplace_back(Mat4::I);
+		if (bone.parent == -1U)
+			pose.emplace_back(Mat4().translate(base));
+		else
+		{
+			BoneIndex parent_idx = bone.parent;
+			pose.emplace_back(pose[parent_idx] * Mat4().translate(bones[parent_idx].extent));
+		}
 	}
 
 	assert(pose.size() == bones.size()); // should have a transform for every bone.
@@ -71,7 +75,27 @@ std::vector<Mat4> Skeleton::current_pose() const
 	// Bone::compute_rotation_axes() will tell you what axes (in local bone space) Bone::pose should rotate around.
 	// Mat4::angle_axis(angle, axis) will produce a matrix that rotates angle (in degrees) around a given axis.
 
-	return std::vector<Mat4>(bones.size(), Mat4::I);
+	std::vector<Mat4> pose;
+	pose.reserve(bones.size());
+
+	// NOTE: bones is guaranteed to be ordered such that parents appear before child bones.
+
+	for (auto const &bone : bones)
+	{
+		Vec3 R_z, R_y, R_x;
+		bone.compute_rotation_axes(&R_x, &R_y, &R_z);
+		if (bone.parent == -1U)
+			pose.emplace_back(Mat4().translate(base + base_offset) * Mat4().angle_axis(bone.pose.z, R_z) * Mat4().angle_axis(bone.pose.y, R_y) * Mat4().angle_axis(bone.pose.x, R_x));
+		else
+		{
+			BoneIndex parent_idx = bone.parent;
+			pose.emplace_back(pose[parent_idx] * Mat4().translate(bones[parent_idx].extent) * Mat4().angle_axis(bone.pose.z, R_z) * Mat4().angle_axis(bone.pose.y, R_y) * Mat4().angle_axis(bone.pose.x, R_x));
+		}
+	}
+
+	assert(pose.size() == bones.size()); // should have a transform for every bone.
+
+	return pose;
 }
 
 std::vector<Vec3> Skeleton::gradient_in_current_pose() const
@@ -85,6 +109,43 @@ std::vector<Vec3> Skeleton::gradient_in_current_pose() const
 
 	// TODO: loop over handles and over bones in the chain leading to the handle, accumulating gradient contributions.
 	// remember bone.compute_rotation_axes() -- should be useful here, too!
+
+	std::vector<Mat4> current_poses = current_pose();
+	for (auto const &handle : handles)
+	{
+		if (!handle.enabled || handle.bone == -1U)
+			continue;
+
+		Vec3 h = handle.target;
+		BoneIndex bone_index = handle.bone;
+		Vec3 pose = current_poses[bone_index] * bones[bone_index].extent;
+
+		BoneIndex parent_bone_index = bones[bone_index].parent;
+		for (; parent_bone_index != -1U;)
+		{
+			Bone bone = bones[bone_index];
+			Bone parent_bone = bones[parent_bone_index];
+
+			Vec3 parent_R_z, parent_R_y, parent_R_x;
+			bone.compute_rotation_axes(&parent_R_x, &parent_R_y, &parent_R_z);
+
+			Mat4 xform_x = current_poses[bone.parent] * Mat4().translate(parent_bone.extent) * Mat4().angle_axis(bone.pose.z, parent_R_z) * Mat4().angle_axis(bone.pose.y, parent_R_y);
+			Vec3 rotation_x = cross(xform_x * parent_R_x, pose - xform_x * Vec3(0.0f));
+
+			Mat4 xform_y = current_poses[bone.parent] * Mat4().translate(parent_bone.extent) * Mat4().angle_axis(bone.pose.z, parent_R_z);
+			Vec3 rotation_y = cross(xform_y * parent_R_y, pose - xform_y * Vec3(0.0f));
+
+			Mat4 xform_z = current_poses[bone.parent] * Mat4().translate(parent_bone.extent);
+			Vec3 rotation_z = cross(xform_z * parent_R_z, pose - xform_z * Vec3(0.0f));
+
+			gradient[bone_index].x += dot((pose - handle.target), rotation_x);
+			gradient[bone_index].y += dot((pose - handle.target), rotation_y);
+			gradient[bone_index].z += dot((pose - handle.target), rotation_z);
+
+			bone_index = parent_bone_index;
+			parent_bone_index = bones[parent_bone_index].parent;
+		}
+	}
 
 	assert(gradient.size() == bones.size());
 	return gradient;
@@ -101,6 +162,20 @@ bool Skeleton::solve_ik(uint32_t steps)
 
 	// if at a local minimum (e.g., gradient is near-zero), return 'true'.
 	// if run through all steps, return `false`.
+	float default_step = 0.1f;
+	float tolerance = 0.000001f;
+	for (BoneIndex i = 0U; i < steps; i++)
+	{
+		std::vector<Vec3> gradient = gradient_in_current_pose();
+		float grad_norm = 0.0f;
+		for (int j = 0; j < gradient.size(); j++)
+			grad_norm += gradient[j].norm_squared();
+		if (grad_norm <= tolerance)
+			return true;
+		for (size_t k = 0; k < bones.size(); k++)
+			bones[k].pose -= default_step * gradient[k];
+	}
+
 	return false;
 }
 

@@ -1,22 +1,24 @@
 #include "test.h"
 #include "scene/skeleton.h"
 
-inline std::vector<Skeleton::BoneIndex> setup_bones_current(Skeleton& skeleton) {
+inline std::vector<Skeleton::BoneIndex> setup_bones_current(Skeleton &skeleton)
+{
 
 	skeleton.bones.clear();
 
-	auto root = 	skeleton.add_bone(-1U, 		Vec3(1.0f, 0.0f, 0.0f));
-	auto child1 = 	skeleton.add_bone(root, 	Vec3(0.0f, 1.0f, 0.0f));
+	auto root = skeleton.add_bone(-1U, Vec3(1.0f, 0.0f, 0.0f));
+	auto child1 = skeleton.add_bone(root, Vec3(0.0f, 1.0f, 0.0f));
 
-    skeleton.bones[root].pose = Vec3(90.0f, 0.0f, 0.0f);
-    skeleton.bones[child1].pose = Vec3(0.0f, 90.0f, 0.0f);
+	skeleton.bones[root].pose = Vec3(90.0f, 0.0f, 0.0f);
+	skeleton.bones[child1].pose = Vec3(0.0f, 90.0f, 0.0f);
 
 	skeleton.base = Vec3(0.0f, 0.0f, 1.0f);
 
 	return {root, child1};
 }
 
-Test test_a4_task2_pose_current_simple("a4.task2.pose.current.simple", []() {
+Test test_a4_task2_pose_current_simple("a4.task2.pose.current.simple", []()
+																			 {
 	Skeleton skeleton;
 	auto joints = setup_bones_current(skeleton);
     std::vector<Mat4> expected;
@@ -36,9 +38,11 @@ Test test_a4_task2_pose_current_simple("a4.task2.pose.current.simple", []() {
     std::vector<Mat4> actual = skeleton.current_pose();
 
 	if (Test::differs(expected[0], actual[0])) {
+		printf("\n");
+		for (int i = 0; i < 4; i++)
+			printf("%f, %f, %f, %f\n", actual[0][i].x, actual[0][i].y, actual[0][i].z, actual[0][i].w);
 		throw Test::error("Test failed on the root!");
 	}
 	if (Test::differs(expected[1], actual[1])) {
 		throw Test::error("Test failed on the first child joint!");
-	}
-});
+	} });

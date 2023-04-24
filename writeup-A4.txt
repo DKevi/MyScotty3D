@@ -13,10 +13,10 @@ Task A4T2:
 --- A4.5 ---
 
 Task A4T3:
-	Fully implemented.
+	Not attempted.
 
 Task A4T4:
-	Fully implemented.
+	Not attempted.
 
 animation.mp4:
 	How did you make it?
